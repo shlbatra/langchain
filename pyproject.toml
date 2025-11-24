@@ -1,0 +1,16 @@
+[project]
+name = "langchain"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain",
+    "wikipedia", 
+    "langchain-community",
+    "langchain-openai",
+    "langchain-anthropic",
+    "python-dotenv",
+    "pydantic",
+    "duckduckgo-search"
+]
