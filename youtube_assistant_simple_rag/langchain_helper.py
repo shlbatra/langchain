@@ -10,7 +10,7 @@ from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 
 
-load_dotenv
+load_dotenv()
 
 embeddings = OpenAIEmbeddings()
 
@@ -33,12 +33,11 @@ def create_vector_db_from_youtube_url(video_url: str) -> FAISS:
     return db
 
 def get_response_from_query(db, query, k=4):
-    # tet-davinci model can handle 4097 tokens
     
     docs = db.similarity_search(query, k=k)
     docs_page_content = " ".join([d.page_content for d in docs])
 
-    llm = ChatOpenAI(model="text-davinci-003")
+    llm = ChatOpenAI(model="gpt-3.5-turbo")
 
     prompt = ChatPromptTemplate.from_template(
         """
@@ -59,6 +58,6 @@ def get_response_from_query(db, query, k=4):
 
     response = chain.invoke({'question': query, 'docs': docs_page_content})
 
-    response = response.replace("\n", "")
+    response = response.content.replace("\n", "")
 
-    return response
+    return response, docs

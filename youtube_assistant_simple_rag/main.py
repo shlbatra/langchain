@@ -2,6 +2,10 @@ from langchain_helper import get_response_from_query, create_vector_db_from_yout
 import streamlit as st
 import textwrap
 
+# Run streamlit with `streamlit run main.py`
+# Example URL - https://www.youtube.com/watch?v=zjkBMFhNj_g
+# Example Question - What is jailbreak and give examples based on video 
+
 st.title("Youtube Assistant") # open port 8051
 
 with st.sidebar:
