@@ -32,7 +32,7 @@ def get_weather(city: str):
     return response.json()
 
 @tool('locate_user', description="Look up user city based on context")
-def locate_user(runtime: ToolRuntime[Context]): 
+def locate_user(runtime: ToolRuntime[Context]):  # Auto-knows user's city!
     match runtime.context.user_id: # shared memory space that tools can access during execution (shared workspace that persists during the conversation)
         case 'ABC123':
             return 'Vienna'
@@ -52,8 +52,8 @@ agent = create_agent(
     tools = [get_weather, locate_user],
     system_prompt = 'You are helpful weather assistant, who always cracks jokes and is humorus while remaning helpful',
     context_schema = Context, # contains user id
-    response_format=ResponseFormat, # model respond in specific format
-    checkpointer=checkpointer # add memory to model based on thread_id
+    response_format=ResponseFormat, # model respond in specific format; Forces consistent, structured output instead of free text
+    checkpointer=checkpointer # add memory to model based on thread_id; Remembers conversations using thread_id
 )
 
 conversation = [
@@ -61,13 +61,15 @@ conversation = [
         HumanMessage(content='How is weather in Toronto ?')
     ]
 
-configs = {'configurable':{'thread_id':1}}
+user_id='ABC123'
+
+configs = {'configurable':{'thread_id':f"user_{user_id}"}}
 
 response = agent.invoke({
     'messages': conversation
     },
-    config=configs,
-    context=Context(user_id='ABC123')
+    config=configs,  # For memory separation - Memory: "Load conversation for user ABC123"
+    context=Context(user_id=user_id) # For tool context -"This request is from user ABC123"
 )
 
 #print(response)
@@ -78,7 +80,7 @@ print(response['structured_response'].temperature_celsius)
 
 # Continue conversation
 
-configs = {'configurable':{'thread_id':2}} # change thread to test if conversation breaks 
+configs = {'configurable':{'thread_id':f"user_{user_id}"}} # change thread to test if conversation breaks 
 # It's a sunny day in Toronto with a bit of a cool breeze from the south-southwest. The temperature is mild, perfect for a walk if you don't mind a little chill!
 # I need to know the specific weather condition or location you're referring to in order to determine if it's usual or not. Could you please provide more details or specify the city or weather condition?
 
@@ -94,14 +96,56 @@ response = agent.invoke({
     context=Context(user_id='ABC123')
 )
 
-#print(response)
-#print(response['structured_response'])
 print(response['structured_response'].summary)
 print(response['structured_response'].temperature_celsius)
 
 
-# Stream response example - WIP on how it works
 
-# for chunk in agent.stream({'messages': conversation}):
-#     if 'messages' in chunk and chunk['messages']:
-#         print(chunk['messages'][-1].content, end='', flush=True)
+
+# Combined Power Example example of what script above does :
+
+#   # User ABC123's first message (thread_id=1):
+#   User: "How's my weather?"
+
+  # Agent thinking:
+  # 1. context_schema: user_id=ABC123 → location=Vienna
+  # 2. Uses get_weather tool with Vienna  
+  # 3. response_format: Must return structured data
+  # 4. checkpointer: Saves this to thread_id=1
+
+#   Response: {
+#       "summary": "Sunny and warm in Vienna",
+#       "temperature_celsius": 24.0,
+#       "humidity": 55.0
+#   }
+
+#   # Later in same conversation (thread_id=1):
+#   User: "Should I wear a jacket?"
+
+#   # Agent thinking:
+#   # 1. checkpointer: Remembers we discussed Vienna at 24°C
+#   # 2. context_schema: Still same user in Vienna
+#   # 3. No API call needed!
+
+#   Response: {
+#       "summary": "No jacket needed, it's quite warm at 24°C",
+#       "temperature_celsius": 24.0,
+#       "humidity": 55.0
+#   }
+
+#   Bottom line: These parameters turn a basic chatbot into a personalized assistant with memory and consistent output!
+
+
+# InMemorySaver internal storage:
+#   {
+#       "user_ABC123": [
+#           HumanMessage("Weather in Vienna?"),
+#           AIMessage("Vienna is 24°C, sunny!"),
+#           HumanMessage("Should I wear a jacket?"),
+#           AIMessage("No jacket needed at 24°C!")
+#       ],
+#       "user_XYZ456": [
+#           HumanMessage("Weather in London?"),
+#           AIMessage("London is 15°C, rainy!")
+#       ]
+#   }

@@ -24,6 +24,6 @@ with st.sidebar:
 
 if query and yt_url:
     db = create_vector_db_from_youtube_url(yt_url)
-    response, docs = get_response_from_query(db, query)
+    response = get_response_from_query(db, query)
     st.subheader("Answer: ")
-    st.text(textwrap.fill(response, width = 80))
+    st.markdown(response)
