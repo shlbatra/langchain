@@ -15,15 +15,27 @@ load_dotenv()
 
 embeddings = OpenAIEmbeddings(model='text-embedding-3-large')
 
-def create_vector_db_from_youtube_url(video_url: str) -> FAISS:
-    loader = YoutubeLoader.from_youtube_url(video_url)
-    transcript = loader.load()
+def create_vector_db_from_youtube_urls(video_urls: list[str]) -> FAISS:
+    all_docs = []
+    for video_url in video_urls:
+        try:
+            print(f"Processing: {video_url}")
+            loader = YoutubeLoader.from_youtube_url(video_url)
+            transcript = loader.load()
+            # Add video URL to metadata for tracking
+            for doc in transcript:
+                doc.metadata['video_url'] = video_url
+            all_docs.extend(transcript)
 
+        except Exception as e:
+            print(f"Error processing {video_url}: {e}")
+            continue
+        
     text_splitter = RecursiveCharacterTextSplitter(
             chunk_size = 1000, # individual doc size
             chunk_overlap = 100 # over lap between docs
     ) # sections, semantic meaning, delimeters
-    docs = text_splitter.split_documents(transcript) # split docs to 1000 words -> to include part of token sequence length. Only send relevant part based on vector search using FAISS
+    docs = text_splitter.split_documents(all_docs) # split docs to 1000 words -> to include part of token sequence length. Only send relevant part based on vector search using FAISS
 
     vector_db = FAISS.from_documents(docs, embeddings) # smart search engine
     # Another ex using Chroma -> vector_db = Chroma.from_documents(documents = docs, embedding = embeddings)
@@ -51,6 +63,11 @@ def get_response_from_query(vector_db, query, k=4):
     def search_youtube_transcript(search_query: str) -> str:
         """Search youtube transcript for information"""
         docs = retriever.invoke(search_query)
+        formatted_docs = []
+        for doc in docs:
+            video_url = doc.metadata.get('video_url', 'Unknown')
+            formatted_docs.append(f"[Source: {video_url}]\n{doc.page_content}")
+
         return " ".join([doc.page_content for doc in docs])
 
     system_prompt = """
@@ -74,9 +91,11 @@ def get_response_from_query(vector_db, query, k=4):
     return result["messages"][-1].content
 
 if __name__=="__main__":
-    yt_url="https://www.youtube.com/watch?v=zjkBMFhNj_g"
+    yt_url1="https://www.youtube.com/watch?v=zjkBMFhNj_g"
+    yt_url2=""
+    yt_url3=""
     query="What is jailbreak and give examples based on video" 
 
-    vector_db = create_vector_db_from_youtube_url(yt_url)
+    vector_db = create_vector_db_from_youtube_urls([yt_url1, yt_url2, yt_url3])
     response = get_response_from_query(vector_db, query)
     print(response)
